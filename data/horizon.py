@@ -1,8 +1,8 @@
-"""TableTop - tahmin ufku (horizon) grafigi.
+"""TabPilot - tahmin ufku (horizon) grafigi, gercek UCI robot verisiyle.
 
-Kullanim:
-    python horizon.py sensor_readings_4.data
-    python horizon.py sensor_readings_24.data --lags 3
+Kullanim (repo kokunden):
+    python data/horizon.py data/sensor_readings_24.data --lags 3 --out data/horizon
+    python data/horizon.py data/sensor_readings_4.data --out data/horizon_4
 
 Her ufuk icin (0 = simdi, 9 = 1 sn sonra, ...) TabPFN ve lineer modelin
 balanced accuracy degerini hesaplar, horizon.png ve horizon.csv kaydeder.

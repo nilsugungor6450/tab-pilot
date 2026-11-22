@@ -2,5 +2,4 @@
 __pycache__/
 *.pyc
 
-docs/demo_script.md
-docs/presentation_script.md
+docs/

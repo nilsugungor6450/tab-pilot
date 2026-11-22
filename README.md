@@ -52,7 +52,7 @@ new situation (same 26 columns)  ->  TabPFN.predict_proba  ->  probabilities for
 
 - **Robot** (`sim.py`): a circle with 24 range sensors, one every 15° up to 5 m, like the UCI Wall-Following robot. It has 5 discrete moves: forward, slight left/right and sharp left/right.
 - **Row:** the 24 sensor readings and, in the game, 2 extra columns that give the direction the track continues in relative to the robot. The label is the move that was made.
-- **Policy** (`policy.py`): `TabPFNClassifier.fit()` loads the rows as context. Nothing is trained. Each step, `predict_proba` returns a probability for every move, and the robot takes the most likely one. With a cached context and a single estimator, one decision takes about 40 ms on an M2 MacBook Air (8 GB).
+- **Policy** (`policy.py`): `TabPFNClassifier.fit()` loads the rows as context. Nothing is trained. Each step, `predict_proba` returns a probability for every move, and the robot takes the most likely one. With a cached context and a single estimator, one decision takes about 36 ms on an M2 MacBook Air (8 GB).
 - **Separate process** (`brain.py`): in the game, TabPFN runs in its own process. Running it in a thread inside the 60 fps game loop made both slow because of Python's GIL. Loading went from about 5 s to more than 80 s.
 
 ### Controls
@@ -153,7 +153,10 @@ Notes:
 │
 ├── data/
 │   ├── sensor_readings_24.data   UCI Wall-Following dataset, 24 sensors (see Dataset)
-│   └── sensor_readings_4.data    Same rows, 4 simplified distances
+│   ├── sensor_readings_4.data    Same rows, 4 simplified distances
+│   ├── horizon.py                Real data: predict the move 0–5 s ahead, TabPFN vs a linear model
+│   ├── horizon.csv               Balanced accuracy for each horizon
+│   └── horizon.png               The same results as a plot
 ├── demos/
 │   ├── teacher_A.csv       Teacher rows from room A only
 │   ├── teacher_mixed.csv   Teacher rows from room A + 10 random rooms (default context)
@@ -200,6 +203,21 @@ Both files have 5456 rows, no header, and the move as the last column.
 ## Results
 
 All numbers were measured in this repository using the local `tabpfn` package.
+
+**Real robot data first** (`python data/horizon.py data/sensor_readings_24.data --lags 3 --out data/horizon`)
+
+TabPFN and a linear model (logistic regression) predicted the move the UCI robot makes some seconds ahead. Each row also contains the readings from the 3 previous steps. The rows are split by time: the first 75% give the context (at most 3000 rows) and the last 25% are the test set.
+
+| Ahead | TabPFN | Linear model |
+|---|---|---|
+| now | 1.00 | 0.92 |
+| 0.44 s | 0.86 | 0.76 |
+| 1 s | 0.85 | 0.66 |
+| 2 s | 0.74 | 0.47 |
+| 3 s | 0.77 | 0.35 |
+| 5 s | 0.71 | 0.30 |
+
+Balanced accuracy. The plot is `data/horizon.png`.
 
 **Memorization or generalization?** (`python generalize.py`)
 
