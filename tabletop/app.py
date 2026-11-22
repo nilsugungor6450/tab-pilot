@@ -1,24 +1,11 @@
-"""TableTop - canli demo (ekrandaki yazilar Ingilizce).
+"""TabPilot lab: TabPFN drives a robot in a room, with a "where is it going" uncertainty cone.
 
-Kullanim:
-    python app.py                          # rastgele, hic gorulmemis bir oda
-    python app.py --room B                 # elle cizilmis oda B
+Usage:
+    python app.py [--room B]
 
-Tuslar (ekranda da yazar):
-  Kim suruyor?
-    P        TabPFN surer (baglamdaki tablo satirlarini taklit eder)
-    T        Teacher: kural tabanli kontrolcu surer (TabPFN'in ogrendigi "ogretmen")
-    M        Sen surersin: yukari ok = ileri, sol/sag ok = hafif donus,
-             Shift + sol/sag = keskin donus. Bastigin her adim bir tablo satiri olur.
-  TabPFN'in tablosu (baglam):
-    F        "Feed": TabPFN'e SENIN satirlarini ver, artik seni taklit eder
-    G        Geri: ogretmen tablosuna don
-  Oda / robot:
-    N        Yeni rastgele oda (hic gorulmemis)      1 2 3  Oda A / B / C
-    R        Robotu basa al                          Fare   Robotu tikladigin yere koy
-  Gorunum:
-    C        "Where is it going?" belirsizlik konisini ac/kapa
-    Esc      Cikis
+Keys: P TabPFN drives, T teacher drives, M you drive (arrows, Shift = sharp),
+F load your rows into TabPFN, G back to teacher rows, C toggle cone,
+N new random room, 1/2/3 rooms A/B/C, R restart, click to move the robot.
 """
 import argparse
 import math
@@ -51,7 +38,7 @@ PRETTY = ["Forward", "Slight left", "Slight right", "Sharp left", "Sharp right"]
 
 pygame.init()
 screen = pygame.display.set_mode((W, H))
-pygame.display.set_caption("TableTop - TabPFN drives a robot")
+pygame.display.set_caption("TabPilot - TabPFN drives a robot")
 font = pygame.font.SysFont("Helvetica", 18)
 big = pygame.font.SysFont("Helvetica", 30, bold=True)
 small = pygame.font.SysFont("Helvetica", 14)
@@ -60,10 +47,7 @@ clock = pygame.time.Clock()
 rng = np.random.default_rng(args.seed)
 
 
-# ------------------------------------------------------------ yardimcilar
 class View:
-    """Metre <-> piksel donusumu (odaya gore olcekler)."""
-
     def __init__(self, room):
         pts = np.array([pt for seg in ROOMS[room]["walls"] for pt in seg])
         self.min = pts.min(0)
@@ -71,7 +55,7 @@ class View:
         self.s = min((W - PANEL - 60) / span[0], (H - 60) / span[1])
         self.off = np.array([30, 30]) + ((W - PANEL - 60, H - 60) - span * self.s) / 2
 
-    def px(self, x, y):   # y yukari pozitif -> ekranda asagi
+    def px(self, x, y):
         return (self.off[0] + (x - self.min[0]) * self.s,
                 H - (self.off[1] + (y - self.min[1]) * self.s))
 
@@ -85,7 +69,6 @@ def text(s, pos, f=font, color=WALL):
 
 
 def key(label, desc, pos):
-    """Tus kutucugu + aciklama."""
     w = key_font.size(label)[0] + 10
     pygame.draw.rect(screen, (55, 60, 100), (pos[0], pos[1], w, 18), border_radius=4)
     screen.blit(key_font.render(label, True, WALL), (pos[0] + 5, pos[1] + 1))
@@ -93,7 +76,6 @@ def key(label, desc, pos):
 
 
 def message(s):
-    """Uzun islem oncesi ekrana not dus (TabPFN yuklenirken)."""
     pygame.draw.rect(screen, (40, 44, 80), (W - PANEL + 20, H / 2 - 22, PANEL - 40, 44), border_radius=8)
     text(s, (W - PANEL + 34, H / 2 - 10))
     pygame.display.flip()
@@ -112,14 +94,13 @@ def load_teacher_rows(path):
 
 
 def new_random_room():
-    return random_room(int(rng.integers(10_000, 1_000_000)))   # egitim odalari R500-R509, cakismaz
+    return random_room(int(rng.integers(10_000, 1_000_000)))
 
 
 def room_label(room):
     return f"Room {room}" + ("  (random, never seen)" if room.startswith("R") else "")
 
 
-# ------------------------------------------------------------ durum
 room = args.room or new_random_room()
 view = View(room)
 robot = Robot(room)
@@ -182,7 +163,6 @@ while running:
         elif keys[pygame.K_UP]:
             manual_action = 0
 
-    # ---------------------------------------------------- bir simulasyon adimi
     sensors = robot.sense()
     ts = time.time()
     probs = policy.probs(sensors)[0]
@@ -201,29 +181,27 @@ while running:
     if chosen is not None:
         robot.step(chosen)
 
-    # "where is it going?" konisi: 1..4 sn sonrasi icin %10 / %50 / %90 tahminleri
     cone = None
     if cone_on and not robot.crashed:
         fwd, lat = forecaster.predict(robot.sense())
         pose = (robot.x, robot.y, robot.heading)
-        left = [to_world(pose, f, l) for f, l in zip(fwd[:, 1], lat[:, 2])]    # %90 = en solu
-        right = [to_world(pose, f, l) for f, l in zip(fwd[:, 1], lat[:, 0])]   # %10 = en sagi
+        left = [to_world(pose, f, l) for f, l in zip(fwd[:, 1], lat[:, 2])]
+        right = [to_world(pose, f, l) for f, l in zip(fwd[:, 1], lat[:, 0])]
         mid = [to_world(pose, f, l) for f, l in zip(fwd[:, 1], lat[:, 1])]
         reach = [(to_world(pose, fwd[i, 0], lat[i, 1]), to_world(pose, fwd[i, 2], lat[i, 1]))
-                 for i in range(len(HORIZONS))]                              # ileri yonde aralik
+                 for i in range(len(HORIZONS))]
         cone = (left, right, mid, reach)
 
-    # ---------------------------------------------------- cizim
     screen.fill(BG)
     rx, ry = view.px(robot.x, robot.y)
-    for ang, d in zip(SENSOR_ANGLES, sensors):                    # sensor isinlari
+    for ang, d in zip(SENSOR_ANGLES, sensors):
         th = robot.heading + ang
         end = view.px(robot.x + math.cos(th) * d, robot.y + math.sin(th) * d)
         t = min(d / 2.5, 1)
         col = (int(255 - 120 * t), int(90 + 60 * t), int(90 + 120 * t))
         pygame.draw.line(screen, col, (rx, ry), end, 1)
         pygame.draw.circle(screen, col, end, 3)
-    if cone is not None:                                          # belirsizlik konisi
+    if cone is not None:
         left, right, mid, reach = cone
         poly = [(rx, ry)] + [view.px(*q) for q in left] + [view.px(*q) for q in reversed(right)]
         layer = pygame.Surface((W, H), pygame.SRCALPHA)
@@ -236,18 +214,17 @@ while running:
             pygame.draw.circle(screen, CONE, view.px(*q), 4)
         tip = view.px(*mid[-1])
         text(f"+{HORIZONS[-1]:g} s", (tip[0] + 8, tip[1] - 8), small, CONE)
-    if len(robot.trail) > 1:                                      # iz
+    if len(robot.trail) > 1:
         pygame.draw.lines(screen, TRAIL, False, [view.px(*q) for q in robot.trail[-1500:]], 2)
-    for a, b in ROOMS[room]["walls"]:                             # duvarlar
+    for a, b in ROOMS[room]["walls"]:
         pygame.draw.line(screen, WALL, view.px(*a), view.px(*b), 4)
     pygame.draw.circle(screen, BAD if robot.crashed else ACCENT, (rx, ry), 0.22 * view.s)
     hx, hy = view.px(robot.x + math.cos(robot.heading) * 0.35, robot.y + math.sin(robot.heading) * 0.35)
     pygame.draw.line(screen, WALL, (rx, ry), (hx, hy), 3)
 
-    # panel
     x0 = W - PANEL
     pygame.draw.rect(screen, (26, 30, 56), (x0, 0, PANEL, H))
-    text("TableTop", (x0 + 24, 18), big)
+    text("TabPilot", (x0 + 24, 18), big)
     text(room_label(room), (x0 + 24, 56), small, DIM)
     mode_txt = {"tabpfn": "TabPFN is driving", "teacher": "Teacher is driving",
                 "manual": "You are driving"}[mode]
@@ -275,7 +252,6 @@ while running:
     if robot.crashed:
         text("CRASHED!  Press R to restart", (x0 + 24, 472), font, BAD)
 
-    # tus rehberi
     y0 = H - 196
     text("Who drives", (x0 + 24, y0), small, WALL)
     key("P", "TabPFN", (x0 + 24, y0 + 20)); key("T", "Teacher", (x0 + 130, y0 + 20)); key("M", "You", (x0 + 240, y0 + 20))

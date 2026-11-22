@@ -1,18 +1,4 @@
-"""Ezber mi, genelleme mi? TabPFN'i hic gormedigi rastgele odalarda test et.
-
-Kullanim:
-    python generalize.py                                   # iki baglami karsilastir
-    python generalize.py --contexts demos/teacher_A.csv --rooms 20
-
-Test odalari R1000, R1001, ... (gosterim odalarindan tamamen ayri seed'ler).
-Her odaya bir TabPFN robotu konur; tum robotlar her adimda TEK predict
-cagrisiyla surulur. Ayni odalarda ogretmen de referans olarak surulur.
-
-Olculenler:
-  carpma         : robot duvara/sutuna carpti mi
-  sag duvar bandi: adimlarin yuzde kacinda sag duvar 0.5-1.0 m arasinda (asil gorev)
-Cikti: figures/generalize_<baglam>.png (oda izgarasi + robot izleri)
-"""
+"""Generalization test on unseen random rooms: compares contexts and saves trajectory grids to figures/."""
 import argparse
 import os
 import time
@@ -32,11 +18,10 @@ p.add_argument("--steps", type=int, default=600)
 args = p.parse_args()
 
 rooms = [random_room(1000 + i) for i in range(args.rooms)]
-RIGHT = 18   # 18 * 15 = 270 derece = robotun sagi
+RIGHT = 18
 
 
 def run(drive):
-    """drive(S) -> eylemler. Tum odalarda paralel surus."""
     robots = [Robot(r) for r in rooms]
     right = [[] for _ in robots]
     for _ in range(args.steps):

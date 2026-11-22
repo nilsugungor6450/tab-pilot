@@ -1,14 +1,7 @@
-"""Ogretmen kontrolcuyu bir odada surup gosterim tablosu kaydeder.
+"""Record teacher demonstrations as a CSV table.
 
-Kullanim:
-    python record.py                       # oda A, 3000 adim -> demos/teacher_A.csv
-    python record.py --room A --steps 4000 --noise 0.2
-    python record.py --room A,R500,R501,R502 --steps 1000   # birden fazla oda, her biri 1000 adim
-
---noise: adimlarin bu kadarinda robot RASTGELE hareket eder ama etikete yine
-ogretmenin "dogru" cevabi yazilir. Boylece tabloda "hatadan sonra nasil
-toparlanirim" satirlari da olur (DART / noise injection fikri). Bu olmadan
-TabPFN kucuk bir hata yapinca hic gormedigi durumlara duser.
+Usage:
+    python record.py --room A,R500,R501 --steps 600 --noise 0.2
 """
 import argparse
 import os
@@ -29,7 +22,7 @@ def record(room="A", steps=3000, noise=0.2, seed=0):
         rows.append([*d, ACTION_NAMES[a]])
         act = rng.integers(len(ACTION_NAMES)) if rng.random() < noise else a
         r.step(act)
-        if r.crashed:              # rastgele hareket duvara soktuysa yeniden basla
+        if r.crashed:
             r = Robot(room)
     cols = [f"s{i}" for i in range(N_SENSORS)] + ["action"]
     return pd.DataFrame(rows, columns=cols)

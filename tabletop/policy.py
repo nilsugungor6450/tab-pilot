@@ -1,9 +1,4 @@
-"""TabPFN'i robotun "beyni" olarak kullanan kucuk sarmalayici.
-
-Hiz notu (M2, 8 GB, olculdu):
-  varsayilan ayarlar              -> tek tahmin ~8 sn  (canli dongu icin cok yavas)
-  fit_with_cache + n_estimators=1 -> 20 satir ~0.14 sn (canli dongu icin yeterli)
-"""
+"""TabPFN classifier used as a driving policy (cached context, one estimator for real-time use)."""
 import numpy as np
 import pandas as pd
 
@@ -18,11 +13,10 @@ class TabPFNPolicy:
         self.n_context = 0
 
     def fit(self, X, y):
-        """Gosterim tablosunu baglam (context) olarak yukle. Egitim yok, gradyan yok."""
         from tabpfn import TabPFNClassifier
 
         X, y = np.asarray(X, dtype=float), np.asarray(y)
-        if len(X) > self.max_context:   # zamana yayilmis esit aralikli ornek
+        if len(X) > self.max_context:
             idx = np.linspace(0, len(X) - 1, self.max_context).astype(int)
             X, y = X[idx], y[idx]
         self.model = TabPFNClassifier(fit_mode="fit_with_cache", n_estimators=self.n_estimators)
@@ -35,11 +29,10 @@ class TabPFNPolicy:
         return self.fit(df.drop(columns="action").to_numpy(), df["action"].to_numpy())
 
     def probs(self, sensors):
-        """sensors: (24,) veya (N, 24). Doner: (N, 5) olasilik, ACTION_NAMES sirasinda."""
         S = np.atleast_2d(np.asarray(sensors, dtype=float))
         p = self.model.predict_proba(S)
         out = np.zeros((len(S), len(ACTION_NAMES)))
-        for j, c in enumerate(self.model.classes_):   # baglamda olmayan sinif = 0 olasilik
+        for j, c in enumerate(self.model.classes_):
             out[:, ACTION_NAMES.index(c)] = p[:, j]
         return out
 

@@ -1,13 +1,4 @@
-"""Ekransiz test: TabPFN robotu hic gormedigi odalarda ne kadar iyi suruyor?
-
-Kullanim:
-    python evaluate.py                         # demos/teacher_A.csv ile B ve C odalari
-    python evaluate.py --rooms B --steps 600 --robots 8
-
-Ayni anda --robots kadar robotu farkli baslangiclardan surer (hepsi TEK
-predict cagrisinda, yani neredeyse bedava). Her robot icin carpma olup
-olmadigi ve ogretmenle ayni karari verme orani raporlanir.
-"""
+"""Drive several robots with TabPFN in unseen rooms; report crashes and agreement with the teacher."""
 import argparse
 import math
 import time
@@ -30,7 +21,6 @@ print(f"baglam: {policy.n_context} satir, yukleme {time.time() - t0:.1f} sn\n")
 
 for room in args.rooms.split(","):
     sx, sy, sh = ROOMS[room]["start"]
-    # Robotlari ogretmenin rotasi uzerindeki farkli noktalardan baslat
     guide, starts = Robot(room), []
     for t in range(args.robots * 150):
         if t % 150 == 0:

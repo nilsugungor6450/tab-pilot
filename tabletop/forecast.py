@@ -1,26 +1,15 @@
-"""'Robot nereye gidiyor?' - TabPFNRegressor ile gelecek konum + belirsizlik.
-
-Her satir: 24 sensor okumasi + ufuk (kac saniye sonrasi)
-Hedef: robotun o kadar sonra nerede olacagi, ROBOTUN KENDI eksenlerinde:
-    fwd = ne kadar ileride (m), lat = ne kadar solda (+) / sagda (-) (m)
-TabPFN tek bir sayi degil, bir dagilim verir. 10. ve 90. yuzdelikler arasi
-koninin genisligidir: dar koni = "eminim", genis koni = "kosede ne olacagi belli degil".
-
-Kullanim (kalibrasyon testi, hic gorulmemis oda):
-    python forecast.py                    # oda A + 10 rastgele odadan ogren, B, C ve hic gorulmemis R1000de olc
-"""
+"""Future-position forecast with TabPFNRegressor quantiles (the uncertainty cone) and a calibration check."""
 import math
 
 import numpy as np
 
 from sim import DT, ROOMS, Robot, teacher
 
-HORIZONS = [1.0, 2.0, 3.0, 4.0]   # saniye
+HORIZONS = [1.0, 2.0, 3.0, 4.0]
 QUANTILES = [0.1, 0.5, 0.9]
 
 
 def rollout(room, steps=3000, noise=0.2, seed=0, start=None):
-    """Gurultulu ogretmenle surus; sensor + poz kaydi. Carpinca yeni bolum baslar."""
     rng = np.random.default_rng(seed)
     r = Robot(room, *(start or (None, None, None)))
     S, P, ep, e = [], [], [], 0
@@ -37,7 +26,6 @@ def rollout(room, steps=3000, noise=0.2, seed=0, start=None):
 
 
 def future_rows(S, P, ep, horizons=HORIZONS):
-    """(sensorler, ufuk) -> (fwd, lat) satirlari."""
     X, Y = [], []
     for h in horizons:
         k = round(h / DT)
@@ -67,7 +55,6 @@ class FuturePredictor:
         return self
 
     def predict(self, sensors):
-        """sensors: (24,) -> fwd, lat: her biri (ufuk sayisi, 3) = [q10, q50, q90]"""
         Q = np.array([[*sensors, h] for h in self.horizons])
         out = []
         for m in self.models:
@@ -77,13 +64,12 @@ class FuturePredictor:
 
 
 def to_world(robot_pose, fwd, lat):
-    """Robot eksenindeki (fwd, lat) noktalarini dunya koordinatina cevir."""
     x, y, th = robot_pose
     c, s = math.cos(th), math.sin(th)
     return x + c * fwd - s * lat, y + s * fwd + c * lat
 
 
-TRAIN_ROOMS = ["A"] + [f"R{500 + i}" for i in range(10)]   # demos/teacher_mixed.csv ile ayni odalar
+TRAIN_ROOMS = ["A"] + [f"R{500 + i}" for i in range(10)]
 
 
 def train_default(rooms=TRAIN_ROOMS, steps=6600, noise=0.2):
@@ -109,7 +95,7 @@ if __name__ == "__main__":
         width = {h: [] for h in HORIZONS}
         times = []
         kmax = round(HORIZONS[-1] / DT)
-        for t in range(0, len(S) - kmax, 6):          # her 6 adimda bir sorgula
+        for t in range(0, len(S) - kmax, 6):
             ts = time.time()
             fwd, lat = fp.predict(S[t])
             times.append(time.time() - ts)
